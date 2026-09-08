@@ -39,54 +39,49 @@ if (process.env.MYSQL_URL) {
   };
 }
 
-let db = null;
 let isConnected = false;
 let dbConnectedAt = null;
 
-function connectDb() {
-  const connection = mysql.createConnection(dbConfig);
-  connection.connect((err) => {
+const pool = mysql.createPool({
+  ...dbConfig,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+function testPoolConnection() {
+  pool.getConnection((err, connection) => {
     if (err) {
       console.error('❌ MySQL Connection Failed:', err.message);
-      console.error('👉 Make sure XAMPP Control Panel is open and MySQL service is STARTED.');
       isConnected = false;
-      setTimeout(connectDb, 5000);
+      setTimeout(testPoolConnection, 5000);
     } else {
-      db = connection;
       isConnected = true;
       dbConnectedAt = new Date();
-      console.log('✅ Connected to MySQL Database (urban_harvest_hub)');
-
+      console.log('✅ Connected to MySQL Database (' + (dbConfig.database || 'urban_harvest_hub') + ')');
+      
       // Verify push_subscriptions table
-      db.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+      connection.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         endpoint VARCHAR(500) NOT NULL UNIQUE,
         p256dh VARCHAR(255) NOT NULL,
         auth VARCHAR(255) NOT NULL
       )`, (tableErr) => {
         if (tableErr) console.error('Push Table creation warning:', tableErr.message);
-      });
-
-      connection.on('error', (dbErr) => {
-        console.error('Database connection lost:', dbErr.code);
-        if (dbErr.code === 'PROTOCOL_CONNECTION_LOST' || dbErr.fatal) {
-          connectDb();
-        }
+        connection.release();
       });
     }
   });
 }
 
-connectDb();
+testPoolConnection();
 
 // ── REUSABLE DB PROMISE WRAPPER ───────────────────────────────────────
 function queryDb(sql, params = []) {
   return new Promise((resolve, reject) => {
-    if (!db || !isConnected) {
-      return reject(new Error("Database not connected. Please start MySQL in XAMPP."));
-    }
-    db.query(sql, params, (err, results) => {
+    pool.query(sql, params, (err, results) => {
       if (err) return reject(err);
+      isConnected = true;
       resolve(results);
     });
   });
