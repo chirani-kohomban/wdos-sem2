@@ -7,8 +7,12 @@ const user = process.env.DB_USER || "root";
 const password = process.env.DB_PASSWORD || "";
 const dbName = process.env.DB_NAME || "urban_harvest_hub";
 
+const ssl = (process.env.DB_SSL === 'true' || (process.env.DB_PORT && process.env.DB_PORT != 3306))
+  ? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+  : undefined;
+
 // Step 1: Connect to MySQL root to ensure database exists
-const rootConn = mysql.createConnection({ host, port, user, password });
+const rootConn = mysql.createConnection({ host, port, user, password, ...(ssl ? { ssl } : {}) });
 
 rootConn.connect((err) => {
   if (err) {
@@ -29,7 +33,7 @@ rootConn.connect((err) => {
     rootConn.end();
 
     // Step 2: Connect to urban_harvest_hub database and create tables
-    const db = mysql.createConnection({ host, port, user, password, database: dbName });
+    const db = mysql.createConnection({ host, port, user, password, database: dbName, ...(ssl ? { ssl } : {}) });
 
     const queries = [
       `CREATE TABLE IF NOT EXISTS admins (
