@@ -49,6 +49,86 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+function ensureTables(connection) {
+  const initSql = [
+    `CREATE TABLE IF NOT EXISTS admins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(255) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      image VARCHAR(255),
+      description TEXT,
+      rating DECIMAL(3,1) DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS workshops (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      date DATETIME NOT NULL,
+      location VARCHAR(255) NOT NULL,
+      slots INT NOT NULL,
+      image VARCHAR(255)
+    )`,
+    `CREATE TABLE IF NOT EXISTS events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      date DATETIME NOT NULL,
+      location VARCHAR(255) NOT NULL,
+      category VARCHAR(255) NOT NULL,
+      image VARCHAR(255)
+    )`,
+    `CREATE TABLE IF NOT EXISTS workshop_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      workshop_id INT,
+      user_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      phone VARCHAR(50) NOT NULL,
+      notes TEXT,
+      status VARCHAR(50) DEFAULT 'Pending'
+    )`,
+    `CREATE TABLE IF NOT EXISTS event_registrations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      event_id INT,
+      user_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      attendees INT DEFAULT 1,
+      notes TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      endpoint VARCHAR(500) NOT NULL UNIQUE,
+      p256dh VARCHAR(255) NOT NULL,
+      auth VARCHAR(255) NOT NULL
+    )`
+  ];
+
+  let done = 0;
+  initSql.forEach(sql => {
+    connection.query(sql, () => {
+      done++;
+      if (done === initSql.length) {
+        connection.query("SELECT COUNT(*) as c FROM products", (cErr, cRes) => {
+          if (!cErr && cRes[0] && cRes[0].c === 0) {
+            connection.query(`INSERT INTO products (name, category, price, image, description, rating) VALUES
+              ('Organic Heirloom Tomato Seeds', 'Gardening Supplies', 4.50, 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=800&q=80', 'Non-GMO heirloom seeds producing vibrant, juicy tomatoes.', 4.8),
+              ('Indoor Hydroponic Grow Kit', 'Tools & Equipment', 45.00, 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=800&q=80', 'All-in-one system for cultivating fresh greens indoors.', 4.9),
+              ('Bamboo Gardening Tool Set', 'Tools & Equipment', 22.00, 'https://images.unsplash.com/photo-1617576683096-00fc8eecb3af?auto=format&fit=crop&w=800&q=80', 'Eco-friendly bamboo-handled ergonomic hand tools.', 4.7),
+              ('Bokashi Kitchen Composter', 'Composting', 35.00, 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80', 'Ferment food waste indoors without odors or fruit flies.', 4.6),
+              ('Wildflower Bee Pollinator Mix', 'Seeds', 6.00, 'https://images.unsplash.com/photo-1508873696983-2df5703bc225?auto=format&fit=crop&w=800&q=80', 'Native pollinator flowers supporting local urban bees.', 5.0)`);
+          }
+          connection.release();
+        });
+      }
+    });
+  });
+}
+
 function testPoolConnection() {
   pool.getConnection((err, connection) => {
     if (err) {
@@ -59,17 +139,7 @@ function testPoolConnection() {
       isConnected = true;
       dbConnectedAt = new Date();
       console.log('✅ Connected to MySQL Database (' + (dbConfig.database || 'urban_harvest_hub') + ')');
-      
-      // Verify push_subscriptions table
-      connection.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        endpoint VARCHAR(500) NOT NULL UNIQUE,
-        p256dh VARCHAR(255) NOT NULL,
-        auth VARCHAR(255) NOT NULL
-      )`, (tableErr) => {
-        if (tableErr) console.error('Push Table creation warning:', tableErr.message);
-        connection.release();
-      });
+      ensureTables(connection);
     }
   });
 }
