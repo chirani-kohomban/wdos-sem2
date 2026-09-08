@@ -2,11 +2,22 @@
 
 Urban Harvest Hub is a full-stack Progressive Web Application (PWA) designed to support urban farming and eco-friendly living. It features an integrated storefront for eco-products, workshop registrations, event management, and push notifications.
 
+## 🌐 Live Production Deployment
+* **Live Frontend (PWA App):** [https://urbanharvesthub-ecru.vercel.app](https://urbanharvesthub-ecru.vercel.app)
+* **Live Backend REST API:** [https://urbanharvest-iota.vercel.app](https://urbanharvest-iota.vercel.app)
+* **API Health Check:** [https://urbanharvest-iota.vercel.app/api/health](https://urbanharvest-iota.vercel.app/api/health)
+* **Cloud Database:** TiDB Cloud Serverless MySQL (SSL Protected, Port 4000)
+
+## 📚 Evaluation & Defense Documentation
+* **Lecturer Defense Cheat Sheet:** [LECTURER_DEFENSE_CHEAT_SHEET.md](LECTURER_DEFENSE_CHEAT_SHEET.md)
+* **Manual Testing Matrix:** [MANUAL_TESTING_MATRIX.md](MANUAL_TESTING_MATRIX.md)
+* **Project Architecture Walkthrough:** [PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md](PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md)
+
 ## Tech Stack
 
-*   **Frontend:** React, Vite, Tailwind CSS
-*   **Backend:** Node.js, Express
-*   **Database:** MySQL
+*   **Frontend:** React 19, Vite, Tailwind CSS, React Router v7, PWA
+*   **Backend:** Node.js, Express, Web Push
+*   **Database:** MySQL / MariaDB / TiDB Cloud
 
 ## Getting Started
 
