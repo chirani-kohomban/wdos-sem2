@@ -10,19 +10,30 @@ function ProductDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/products`)
-      .then((res) => {
-        const foundProduct = res.data.find(
-          (item) => item.id === Number(id)
-        );
-        setProduct(foundProduct);
+    const fetchProduct = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`);
+        const found = Array.isArray(res.data) ? res.data.find((item) => Number(item.id) === Number(id)) : null;
+        if (found) {
+          setProduct(found);
+        } else {
+          const seedRes = await fetch("/data/seed_products.json");
+          const seedData = await seedRes.json();
+          setProduct(seedData.find((item) => Number(item.id) === Number(id)));
+        }
+      } catch (err) {
+        try {
+          const seedRes = await fetch("/data/seed_products.json");
+          const seedData = await seedRes.json();
+          setProduct(seedData.find((item) => Number(item.id) === Number(id)));
+        } catch (e) {
+          console.error(e);
+        }
+      } finally {
         setLoading(false);
-      })
-      .catch((error) => {
-        console.log(error);
-        setLoading(false);
-      });
+      }
+    };
+    fetchProduct();
   }, [id]);
 
   if (loading) {

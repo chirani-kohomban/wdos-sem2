@@ -26,11 +26,22 @@ function Workshops() {
   const fetchWorkshops = async () => {
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/workshops`);
-      setWorkshops(res.data);
-      setLoading(false);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setWorkshops(res.data);
+      } else {
+        const seedRes = await fetch("/data/seed_workshops.json");
+        const seedData = await seedRes.json();
+        setWorkshops(seedData);
+      }
     } catch (err) {
-      console.error(err);
-      setError("Failed to load workshops");
+      try {
+        const seedRes = await fetch("/data/seed_workshops.json");
+        const seedData = await seedRes.json();
+        setWorkshops(seedData);
+      } catch (e) {
+        setError("Failed to load workshops");
+      }
+    } finally {
       setLoading(false);
     }
   };

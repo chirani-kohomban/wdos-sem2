@@ -60,3 +60,36 @@ Follow these instructions to set up the project locally.
    npm run dev
    ```
 4. The application will be available at `http://localhost:5173`.
+
+## Running Tests
+
+### Backend Tests
+Run the backend test suite with:
+```
+cd backend
+npm test
+```
+
+### Frontend Tests
+
+Run the frontend tests with:
+```
+cd frontend
+npm test
+```
+
+## Deployment Options
+
+You can start the project using either the PowerShell setup script or Docker Compose.
+
+- **PowerShell script**: Run the top-level `setup.ps1` script:
+  ```powershell
+  .\setup.ps1
+  ```
+
+- **Docker Compose**: Use Docker to spin up the full stack:
+  ```powershell
+  docker compose up -d
+  ```
+
+Both methods will start the backend server and the Vite development server for the frontend.

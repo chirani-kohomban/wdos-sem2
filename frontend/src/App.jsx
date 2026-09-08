@@ -1,18 +1,17 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 
 import Home from "./pages/Home";
 import Products from "./pages/Products";
-import Admin from "./pages/Admin";
 import ProductDetail from "./pages/ProductDetail";
-import NotFound from "./pages/NotFound";
-import Navbar from "./components/Navbar";
 import Workshops from "./pages/Workshops";
 import WorkshopDetail from "./pages/WorkshopDetail";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
+import Admin from "./pages/Admin";
+import NotFound from "./pages/NotFound";
+import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-
-import { useEffect } from "react";
 
 function App() {
   useEffect(() => {
@@ -25,34 +24,34 @@ function App() {
     <BrowserRouter>
       <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-250 transition-colors duration-300">
         
-        {/* Navbar always visible */}
+        {/* Navigation Bar */}
         <Navbar />
 
-        {/* Main Content Area */}
+        {/* Dynamic Route Pages */}
         <div className="flex-grow">
           <Routes>
-            {/* Public pages */}
+            {/* Home & Products */}
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
 
-            {/* Workshops module */}
+            {/* Workshops Module */}
             <Route path="/workshops" element={<Workshops />} />
             <Route path="/workshops/:id" element={<WorkshopDetail />} />
 
-            {/* Events module */}
+            {/* Events Module */}
             <Route path="/events" element={<Events />} />
             <Route path="/events/:id" element={<EventDetail />} />
 
-            {/* Admin panel */}
+            {/* Admin Management Dashboard */}
             <Route path="/admin" element={<Admin />} />
 
-            {/* 404 page */}
+            {/* 404 Not Found Page */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
 
-        {/* Reusable Footer */}
+        {/* Global Footer */}
         <Footer />
 
       </div>

@@ -1,23 +1,27 @@
 const express = require("express");
+require("dotenv").config();
 const cors = require("cors");
 const mysql = require("mysql2");
+const webpush = require("web-push");
+const crypto = require("crypto");
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Admin authentication middleware
+// ── ADMIN AUTH MIDDLEWARE ─────────────────────────────────────────────
 const adminAuth = (req, res, next) => {
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
   const providedPassword = req.headers['x-admin-password'];
 
   if (providedPassword !== adminPassword) {
-    return res.status(401).json({ message: 'Unauthorized: Admin password required' });
+    return res.status(401).json({ success: false, error: 'Unauthorized: Admin password required' });
   }
   next();
 };
 
-// DB CONNECTION
+// ── DB CONFIG & MYSQL CONNECTION ──────────────────────────────────────
 let dbConfig;
 if (process.env.MYSQL_URL) {
   dbConfig = process.env.MYSQL_URL;
@@ -30,66 +34,126 @@ if (process.env.MYSQL_URL) {
     database: process.env.DB_NAME || process.env.MYSQLDATABASE || "urban_harvest_hub"
   };
 }
-console.log('🔧 DB Config:', dbConfig);
 
+let db = null;
+let isConnected = false;
+let dbConnectedAt = null;
 
-let db; // will hold either a real MySQL connection or a mock
-
-function initDb() {
+function connectDb() {
   const connection = mysql.createConnection(dbConfig);
   connection.connect((err) => {
     if (err) {
-      console.error('DB connection error:', err.message);
-      // Fallback mock DB – queries return empty results so the API stays alive
-      db = {
-        query: (sql, values, cb) => {
-          if (typeof values === 'function') {
-            cb = values;
-            values = [];
-          }
-          // Very simple stub: SELECT returns [], other statements succeed with no effect
-          if (/^SELECT/i.test(sql)) {
-            cb(null, []);
-          } else {
-            cb(null, { affectedRows: 0 });
-          }
-        }
-      };
-      console.log('Using mock DB – API endpoints will return empty data.');
+      console.error('❌ MySQL Connection Failed:', err.message);
+      console.error('👉 Make sure XAMPP Control Panel is open and MySQL service is STARTED.');
+      isConnected = false;
+      setTimeout(connectDb, 5000);
     } else {
       db = connection;
-      console.log('Connected to MySQL');
-      
-      // Create push_subscriptions table
+      isConnected = true;
+      dbConnectedAt = new Date();
+      console.log('✅ Connected to MySQL Database (urban_harvest_hub)');
+
+      // Verify push_subscriptions table
       db.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         endpoint VARCHAR(500) NOT NULL UNIQUE,
         p256dh VARCHAR(255) NOT NULL,
         auth VARCHAR(255) NOT NULL
-      )`, (err) => {
-        if (err) console.error('Push Table creation failed:', err);
-        else console.log('Push subscriptions table verified/created');
+      )`, (tableErr) => {
+        if (tableErr) console.error('Push Table creation warning:', tableErr.message);
       });
-    }
-  });
 
-  // Reconnect automatically if database drops the connection (e.g. idle timeout)
-  connection.on('error', (err) => {
-    console.error('Database connection error occurred:', err.code);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.fatal) {
-      console.log('Attempting to reconnect to database...');
-      initDb();
+      connection.on('error', (dbErr) => {
+        console.error('Database connection lost:', dbErr.code);
+        if (dbErr.code === 'PROTOCOL_CONNECTION_LOST' || dbErr.fatal) {
+          connectDb();
+        }
+      });
     }
   });
 }
 
-initDb();
+connectDb();
 
-// ROOT ENDPOINT INFO
+// ── REUSABLE DB PROMISE WRAPPER ───────────────────────────────────────
+function queryDb(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    if (!db || !isConnected) {
+      return reject(new Error("Database not connected. Please start MySQL in XAMPP."));
+    }
+    db.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+}
+
+// ── ASYNC HANDLER WRAPPER ─────────────────────────────────────────────
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// ── INPUT VALIDATIONS ──────────────────────────────────────────────────
+function validateProductInput(body) {
+  const { name, category, price } = body;
+  if (!name || typeof name !== 'string' || name.trim().length < 2) {
+    return 'Product name must be at least 2 characters long.';
+  }
+  if (!category || typeof category !== 'string' || category.trim().length < 2) {
+    return 'Category is required.';
+  }
+  if (price === undefined || isNaN(Number(price)) || Number(price) <= 0) {
+    return 'Price must be a positive number.';
+  }
+  return null;
+}
+
+function validateWorkshopRequestInput(body) {
+  const { workshop_id, user_name, email, phone } = body;
+  if (!workshop_id || isNaN(Number(workshop_id))) {
+    return 'Valid Workshop ID is required.';
+  }
+  if (!user_name || typeof user_name !== 'string' || user_name.trim().length < 3) {
+    return 'Name must be at least 3 characters long.';
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return 'Please provide a valid email address.';
+  }
+  const phoneRegex = /^[0-9+\-\s()]{8,20}$/;
+  if (!phone || !phoneRegex.test(phone)) {
+    return 'Please provide a valid phone number (at least 8 digits).';
+  }
+  return null;
+}
+
+function validateEventRegInput(body) {
+  const { event_id, user_name, email, attendees } = body;
+  if (!event_id || isNaN(Number(event_id))) {
+    return 'Valid Event ID is required.';
+  }
+  if (!user_name || typeof user_name !== 'string' || user_name.trim().length < 3) {
+    return 'Name must be at least 3 characters long.';
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return 'Please provide a valid email address.';
+  }
+  const count = Number(attendees);
+  if (isNaN(count) || count < 1 || count > 10) {
+    return 'Attendees must be a number between 1 and 10.';
+  }
+  return null;
+}
+
+// ── ROOT & HEALTH/DB-STATUS ENDPOINTS ──────────────────────────────────
 app.get("/", (req, res) => {
   res.json({
     message: "Urban Harvest Hub API is active 🌱",
+    dbEngine: "MySQL Database (XAMPP)",
     endpoints: {
+      health: "/api/health",
+      dbStatus: "/api/db-status",
       products: "/products",
       workshops: "/workshops",
       events: "/events",
@@ -99,376 +163,337 @@ app.get("/", (req, res) => {
   });
 });
 
-/* =====================
-   PRODUCTS
-===================== */
-
-// GET
-app.get("/products", (req, res) => {
-  db.query("SELECT * FROM products", (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    database: {
+      connected: isConnected,
+      engine: 'MySQL Database (XAMPP)',
+      host: typeof dbConfig === 'string' ? 'Remote Host' : dbConfig.host,
+      databaseName: typeof dbConfig === 'string' ? 'Remote DB' : dbConfig.database,
+      connectedAt: dbConnectedAt
+    }
   });
 });
 
-// POST
-app.post("/products", (req, res) => {
+app.get("/api/db-status", asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  let tables = ['admins', 'products', 'workshops', 'events', 'workshop_requests', 'event_registrations', 'push_subscriptions'];
+  let productCount = 0;
+  let workshopCount = 0;
+  let eventCount = 0;
+
+  try {
+    const pCount = await queryDb("SELECT COUNT(*) as count FROM products");
+    const wCount = await queryDb("SELECT COUNT(*) as count FROM workshops");
+    const eCount = await queryDb("SELECT COUNT(*) as count FROM events");
+    
+    productCount = pCount[0]?.count || 0;
+    workshopCount = wCount[0]?.count || 0;
+    eventCount = eCount[0]?.count || 0;
+  } catch (err) {
+    console.error('DB Status query error:', err.message);
+  }
+
+  const queryLatencyMs = Date.now() - startTime;
+
+  res.json({
+    success: true,
+    connection: {
+      status: isConnected ? "CONNECTED" : "DISCONNECTED",
+      engineMode: "MySQL Relational Database (XAMPP)",
+      host: typeof dbConfig === 'string' ? 'Remote Host' : dbConfig.host,
+      databaseName: typeof dbConfig === 'string' ? 'Remote DB' : dbConfig.database,
+      latencyMs: queryLatencyMs,
+      connectedAt: dbConnectedAt
+    },
+    tablesCount: tables.length,
+    tables: tables,
+    recordsSummary: {
+      products: productCount,
+      workshops: workshopCount,
+      events: eventCount
+    }
+  });
+}));
+
+/* =====================
+   PRODUCTS API
+===================== */
+
+app.get("/products", asyncHandler(async (req, res) => {
+  const products = await queryDb("SELECT * FROM products");
+  res.json(products);
+}));
+
+app.post("/products", asyncHandler(async (req, res) => {
+  const validationErr = validateProductInput(req.body);
+  if (validationErr) return res.status(400).json({ success: false, error: validationErr });
+
   const { name, category, price, image, description, rating } = req.body;
   const imgPath = image || "/images/product_placeholder.png";
 
   const sql = "INSERT INTO products (name, category, price, image, description, rating) VALUES (?, ?, ?, ?, ?, ?)";
+  const result = await queryDb(sql, [name.trim(), category.trim(), Number(price), imgPath, description ? description.trim() : "", rating ? Number(rating) : 0]);
+  
+  res.status(201).json({ success: true, message: "Product added successfully", id: result.insertId || 99, name, category, price: Number(price), image: imgPath, description, rating: Number(rating) || 0 });
+}));
 
-  db.query(sql, [name, category, price, imgPath, description || "", rating || 0], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Product added successfully" });
-  });
-});
+app.put("/products/:id", asyncHandler(async (req, res) => {
+  const validationErr = validateProductInput(req.body);
+  if (validationErr) return res.status(400).json({ success: false, error: validationErr });
 
-// PUT
-app.put("/products/:id", (req, res) => {
   const { name, category, price, image, description, rating } = req.body;
   const { id } = req.params;
   const imgPath = image || "/images/product_placeholder.png";
 
-  const sql =
-    "UPDATE products SET name=?, category=?, price=?, image=?, description=?, rating=? WHERE id=?";
+  const sql = "UPDATE products SET name=?, category=?, price=?, image=?, description=?, rating=? WHERE id=?";
+  await queryDb(sql, [name.trim(), category.trim(), Number(price), imgPath, description ? description.trim() : "", rating ? Number(rating) : 0, id]);
 
-  db.query(sql, [name, category, price, imgPath, description || "", rating || 0, id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Product updated successfully" });
-  });
-});
+  res.json({ success: true, message: "Product updated successfully" });
+}));
 
-// DELETE (admin only)
-app.delete("/products/:id", adminAuth, (req, res) => {
+app.delete("/products/:id", adminAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  db.query('DELETE FROM products WHERE id = ?', [id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: 'Product deleted successfully' });
-  });
-});
+  await queryDb("DELETE FROM products WHERE id = ?", [id]);
+  res.json({ success: true, message: "Product deleted successfully" });
+}));
 
 /* =====================
-   ADMIN AUTH & STATS
+   ADMIN & STATS API
 ===================== */
 
-const crypto = require("crypto");
 function sha256(str) {
   return crypto.createHash("sha256").update(str).digest("hex");
 }
 
-// POST LOGIN
-app.post("/admin/login", (req, res) => {
+app.post("/admin/login", asyncHandler(async (req, res) => {
   const { username, password } = req.body;
-  const sql = "SELECT * FROM admins WHERE username = ?";
-  db.query(sql, [username], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (results.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-    const admin = results[0];
-    
-    // Support prehashed bcrypt for 'admin123' if no bcrypt library
-    const isBcrypt = admin.password.startsWith("$2");
-    if (isBcrypt && password === "admin123") {
-      return res.json({ success: true, token: "mock-admin-token", username });
-    }
-    
-    if (admin.password === sha256(password) || admin.password === password) {
-      return res.json({ success: true, token: "mock-admin-token", username });
-    }
-    
-    return res.status(401).json({ error: "Invalid credentials" });
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: "Username and password required" });
+  }
+
+  const results = await queryDb("SELECT * FROM admins WHERE username = ?", [username]);
+  if (results.length === 0) {
+    return res.status(401).json({ success: false, error: "Invalid credentials" });
+  }
+  const admin = results[0];
+
+  const isBcrypt = admin.password.startsWith("$2");
+  if (isBcrypt && password === "admin123") {
+    return res.json({ success: true, token: "mock-admin-token", username });
+  }
+
+  if (admin.password === sha256(password) || admin.password === password) {
+    return res.json({ success: true, token: "mock-admin-token", username });
+  }
+
+  return res.status(401).json({ success: false, error: "Invalid credentials" });
+}));
+
+app.get("/stats", asyncHandler(async (req, res) => {
+  const r1 = await queryDb("SELECT COUNT(*) as count FROM products");
+  const r2 = await queryDb("SELECT COUNT(*) as count FROM workshops");
+  const r3 = await queryDb("SELECT COUNT(*) as count FROM events");
+  const r4 = await queryDb("SELECT COUNT(*) as count FROM workshop_requests");
+  const r5 = await queryDb("SELECT COUNT(*) as count FROM event_registrations");
+
+  res.json({
+    products: r1[0]?.count || 0,
+    workshops: r2[0]?.count || 0,
+    events: r3[0]?.count || 0,
+    requests: (r4[0]?.count || 0) + (r5[0]?.count || 0)
   });
-});
-
-// GET STATS
-app.get("/stats", (req, res) => {
-  const stats = { products: 0, workshops: 0, events: 0, requests: 0 };
-  db.query("SELECT COUNT(*) as count FROM products", (err, r1) => {
-    if (err) return res.status(500).json(err);
-    stats.products = r1[0].count;
-
-    db.query("SELECT COUNT(*) as count FROM workshops", (err, r2) => {
-      if (err) return res.status(500).json(err);
-      stats.workshops = r2[0].count;
-
-      db.query("SELECT COUNT(*) as count FROM events", (err, r3) => {
-        if (err) return res.status(500).json(err);
-        stats.events = r3[0].count;
-
-        db.query("SELECT COUNT(*) as count FROM workshop_requests", (err, r4) => {
-          if (err) return res.status(500).json(err);
-          db.query("SELECT COUNT(*) as count FROM event_registrations", (err, r5) => {
-            if (err) return res.status(500).json(err);
-            stats.requests = r4[0].count + r5[0].count;
-            res.json(stats);
-          });
-        });
-      });
-    });
-  });
-});
+}));
 
 /* =====================
-   WORKSHOPS
+   WORKSHOPS API
 ===================== */
 
-// GET WORKSHOPS
-app.get("/workshops", (req, res) => {
-  db.query("SELECT * FROM workshops", (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
-});
+app.get("/workshops", asyncHandler(async (req, res) => {
+  const workshops = await queryDb("SELECT * FROM workshops");
+  res.json(workshops);
+}));
 
-// POST WORKSHOP
-app.post("/workshops", (req, res) => {
+app.post("/workshops", asyncHandler(async (req, res) => {
   const { title, description, date, location, slots, image } = req.body;
+  if (!title || !date || !location || !slots) {
+    return res.status(400).json({ success: false, error: "Title, date, location, and slots are required." });
+  }
   const sql = "INSERT INTO workshops (title, description, date, location, slots, image) VALUES (?, ?, ?, ?, ?, ?)";
-  db.query(sql, [title, description, date, location, slots, image], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Workshop added successfully" });
-  });
-});
+  await queryDb(sql, [title, description, date, location, Number(slots), image]);
+  res.status(201).json({ success: true, message: "Workshop added successfully" });
+}));
 
-// PUT WORKSHOP
-app.put("/workshops/:id", (req, res) => {
+app.put("/workshops/:id", asyncHandler(async (req, res) => {
   const { title, description, date, location, slots, image } = req.body;
   const { id } = req.params;
   const sql = "UPDATE workshops SET title=?, description=?, date=?, location=?, slots=?, image=? WHERE id=?";
-  db.query(sql, [title, description, date, location, slots, image, id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Workshop updated successfully" });
-  });
-});
+  await queryDb(sql, [title, description, date, location, Number(slots), image, id]);
+  res.json({ success: true, message: "Workshop updated successfully" });
+}));
 
-// DELETE WORKSHOP (admin only)
-app.delete("/workshops/:id", adminAuth, (req, res) => {
+app.delete("/workshops/:id", adminAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  db.query('DELETE FROM workshops WHERE id = ?', [id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: 'Workshop deleted successfully' });
-  });
-});
+  await queryDb("DELETE FROM workshops WHERE id = ?", [id]);
+  res.json({ success: true, message: "Workshop deleted successfully" });
+}));
 
-// REQUEST WORKSHOP
-app.post("/workshops/request", (req, res) => {
+app.post("/workshops/request", asyncHandler(async (req, res) => {
+  const validationErr = validateWorkshopRequestInput(req.body);
+  if (validationErr) return res.status(400).json({ success: false, error: validationErr });
+
   const { workshop_id, user_name, email, phone, notes } = req.body;
-
-  // Validation
-  if (!user_name || typeof user_name !== "string" || user_name.trim().length < 3) {
-    return res.status(400).json({ error: "Name must be at least 3 characters long" });
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    return res.status(400).json({ error: "Please provide a valid email address" });
-  }
-  const phoneRegex = /^[0-9+\-\s()]{8,20}$/;
-  if (!phone || !phoneRegex.test(phone)) {
-    return res.status(400).json({ error: "Please provide a valid phone number (at least 8 digits)" });
-  }
-
   const sql = "INSERT INTO workshop_requests (workshop_id, user_name, email, phone, notes) VALUES (?, ?, ?, ?, ?)";
-  db.query(sql, [workshop_id, user_name.trim(), email.trim(), phone.trim(), notes ? notes.trim() : ""], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Request submitted" });
-  });
-});
+  await queryDb(sql, [workshop_id, user_name.trim(), email.trim(), phone.trim(), notes ? notes.trim() : ""]);
+  res.status(201).json({ success: true, message: "Workshop request submitted successfully" });
+}));
 
-// GET REQUESTS
-app.get("/workshops/requests", (req, res) => {
+app.get("/workshops/requests", asyncHandler(async (req, res) => {
   const sql = `
     SELECT wr.id, wr.user_name, wr.email, wr.phone, wr.notes, wr.status, wr.workshop_id, w.title
     FROM workshop_requests wr
     JOIN workshops w ON wr.workshop_id = w.id
   `;
-  db.query(sql, (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
-});
+  const requests = await queryDb(sql);
+  res.json(requests);
+}));
 
-// APPROVE/REJECT WORKSHOP REQUEST
-app.put("/workshops/requests/:id", (req, res) => {
+app.put("/workshops/requests/:id", asyncHandler(async (req, res) => {
   const { status } = req.body;
   const { id } = req.params;
 
   if (status === "Approved") {
-    db.query("SELECT workshop_id FROM workshop_requests WHERE id = ?", [id], (err, results) => {
-      if (err || results.length === 0) return res.status(500).json(err);
+    const results = await queryDb("SELECT workshop_id FROM workshop_requests WHERE id = ?", [id]);
+    if (results.length > 0) {
       const wId = results[0].workshop_id;
-      db.query("UPDATE workshops SET slots = slots - 1 WHERE id = ? AND slots > 0", [wId], (err) => {
-        if (err) return res.status(500).json(err);
-        db.query("UPDATE workshop_requests SET status = ? WHERE id = ?", [status, id], (err) => {
-          if (err) return res.status(500).json(err);
-          res.json({ message: "Request approved and slot reserved" });
-        });
-      });
-    });
-  } else {
-    db.query("UPDATE workshop_requests SET status = ? WHERE id = ?", [status, id], (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ message: `Request status updated to ${status}` });
-    });
+      await queryDb("UPDATE workshops SET slots = slots - 1 WHERE id = ? AND slots > 0", [wId]);
+    }
   }
-});
+
+  await queryDb("UPDATE workshop_requests SET status = ? WHERE id = ?", [status, id]);
+  res.json({ success: true, message: `Request status updated to ${status}` });
+}));
 
 /* =====================
-   EVENTS
+   EVENTS API
 ===================== */
 
-// GET EVENTS
-app.get("/events", (req, res) => {
-  db.query("SELECT * FROM events", (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
-});
+app.get("/events", asyncHandler(async (req, res) => {
+  const events = await queryDb("SELECT * FROM events");
+  res.json(events);
+}));
 
-// POST EVENT
-app.post("/events", (req, res) => {
+app.post("/events", asyncHandler(async (req, res) => {
   const { title, description, date, location, category, image } = req.body;
+  if (!title || !date || !location) {
+    return res.status(400).json({ success: false, error: "Title, date, and location are required." });
+  }
   const sql = "INSERT INTO events (title, description, date, location, category, image) VALUES (?, ?, ?, ?, ?, ?)";
-  db.query(sql, [title, description, date, location, category, image], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Event added successfully" });
-  });
-});
+  await queryDb(sql, [title, description, date, location, category || "General", image]);
+  res.status(201).json({ success: true, message: "Event added successfully" });
+}));
 
-// PUT EVENT
-app.put("/events/:id", (req, res) => {
+app.put("/events/:id", asyncHandler(async (req, res) => {
   const { title, description, date, location, category, image } = req.body;
   const { id } = req.params;
   const sql = "UPDATE events SET title=?, description=?, date=?, location=?, category=?, image=? WHERE id=?";
-  db.query(sql, [title, description, date, location, category, image, id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Event updated successfully" });
-  });
-});
+  await queryDb(sql, [title, description, date, location, category, image, id]);
+  res.json({ success: true, message: "Event updated successfully" });
+}));
 
-// DELETE EVENT (admin only)
-app.delete("/events/:id", adminAuth, (req, res) => {
+app.delete("/events/:id", adminAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  db.query('DELETE FROM events WHERE id = ?', [id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: 'Event deleted successfully' });
-  });
-});
+  await queryDb("DELETE FROM events WHERE id = ?", [id]);
+  res.json({ success: true, message: "Event deleted successfully" });
+}));
 
-// POST REGISTER EVENT
-app.post("/events/register", (req, res) => {
+app.post("/events/register", asyncHandler(async (req, res) => {
+  const validationErr = validateEventRegInput(req.body);
+  if (validationErr) return res.status(400).json({ success: false, error: validationErr });
+
   const { event_id, user_name, email, attendees, notes } = req.body;
-
-  // Validation
-  if (!user_name || typeof user_name !== "string" || user_name.trim().length < 3) {
-    return res.status(400).json({ error: "Name must be at least 3 characters long" });
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    return res.status(400).json({ error: "Please provide a valid email address" });
-  }
-  const count = Number(attendees);
-  if (isNaN(count) || count < 1 || count > 10) {
-    return res.status(400).json({ error: "Attendees must be a number between 1 and 10" });
-  }
-
   const sql = "INSERT INTO event_registrations (event_id, user_name, email, attendees, notes) VALUES (?, ?, ?, ?, ?)";
-  db.query(sql, [event_id, user_name.trim(), email.trim(), count, notes ? notes.trim() : ""], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Registered successfully" });
-  });
-});
+  await queryDb(sql, [event_id, user_name.trim(), email.trim(), Number(attendees), notes ? notes.trim() : ""]);
+  res.status(201).json({ success: true, message: "Registered for event successfully" });
+}));
 
-// GET REGISTERED
-app.get("/events/registrations", (req, res) => {
+app.get("/events/registrations", asyncHandler(async (req, res) => {
   const sql = `
     SELECT er.id, er.user_name, er.email, er.attendees, er.notes, er.event_id, e.title
     FROM event_registrations er
     JOIN events e ON er.event_id = e.id
   `;
-  db.query(sql, (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
-});
+  const regs = await queryDb(sql);
+  res.json(regs);
+}));
 
 /* =====================
-   NOTIFICATIONS
+   PUSH NOTIFICATIONS API
 ===================== */
 
-const webpush = require('web-push');
-
-// Setup web-push
 const publicVapidKey = 'BMpXJ_xHtf7gf0Ej_CAlO4itX9hW_WIM3gnNb0Hsz_hS8fDiLzVj-s4xL260NEK5mX-jxvTTPIsLqNy3syYVuCk';
 const privateVapidKey = 'b2geEqxn31hIrJJAJDY8mbwaHAQohjpnmSzL0ThuBI4';
 webpush.setVapidDetails('mailto:test@example.com', publicVapidKey, privateVapidKey);
-
-// GET PUBLIC KEY
-app.get("/debug-config", (req, res) => {
-  res.json({ dbConfig });
-});
-
-// Debug route removed – use admin-protected /notifications/subscriptions
 
 app.get("/notifications/vapidPublicKey", (req, res) => {
   res.json({ publicKey: publicVapidKey });
 });
 
-// SUBSCRIBE
-app.post("/notifications/subscribe", (req, res) => {
+app.post("/notifications/subscribe", asyncHandler(async (req, res) => {
   const subscription = req.body;
-  
   if (!subscription || !subscription.endpoint || !subscription.keys) {
-    return res.status(400).json({ error: "Invalid subscription format" });
+    return res.status(400).json({ success: false, error: "Invalid push subscription format" });
   }
 
   const { endpoint, keys: { p256dh, auth } } = subscription;
-
   const sql = "INSERT IGNORE INTO push_subscriptions (endpoint, p256dh, auth) VALUES (?, ?, ?)";
-  db.query(sql, [endpoint, p256dh, auth], (err) => {
-    if (err) return res.status(500).json(err);
-    res.status(201).json({ message: "Subscription added successfully" });
-    
-    // Send immediate welcome push!
-    const payload = JSON.stringify({ title: 'Welcome to Urban Harvest Hub 🌱', body: 'Push notifications are now active!' });
-    webpush.sendNotification(subscription, payload).catch(err => console.error(err));
-  });
-});
+  await queryDb(sql, [endpoint, p256dh, auth]);
 
-// ADMIN: SEND PUSH
-app.post("/notifications/send", (req, res) => {
+  res.status(201).json({ success: true, message: "Subscription added successfully" });
+
+  const payload = JSON.stringify({ title: 'Welcome to Urban Harvest Hub 🌱', body: 'Push notifications are now active!' });
+  webpush.sendNotification(subscription, payload).catch(err => console.error('Push notify error:', err.message));
+}));
+
+app.post("/notifications/send", asyncHandler(async (req, res) => {
   const { title, body } = req.body;
+  if (!title || !body) return res.status(400).json({ success: false, error: "Title and body are required." });
+
   const payload = JSON.stringify({ title, body });
+  const subs = await queryDb("SELECT * FROM push_subscriptions");
 
-  db.query("SELECT * FROM push_subscriptions", (err, subs) => {
-    if (err) return res.status(500).json(err);
-
-      console.log('🔔 Sending push to', subs.length, 'subscriptions');
-      const promises = subs.map(sub => {
-        const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
-        return webpush.sendNotification(pushSub, payload)
-          .then(() => console.log('✅ push sent to', sub.endpoint))
-          .catch(err => {
-            console.error('❌ push error for', sub.endpoint, err);
-            if (err.statusCode === 410) {
-              db.query("DELETE FROM push_subscriptions WHERE id = ?", [sub.id]);
-            }
-          });
-      });
-
-    Promise.all(promises).then(() => res.json({ message: "Notifications sent!" }));
+  const promises = subs.map(sub => {
+    const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
+    return webpush.sendNotification(pushSub, payload).catch(err => {
+      if (err.statusCode === 410) {
+        queryDb("DELETE FROM push_subscriptions WHERE id = ?", [sub.id]);
+      }
+    });
   });
-});
 
-app.get("/notifications/subscriptions", adminAuth, (req, res) => {
-  db.query("SELECT * FROM push_subscriptions", (err, rows) => {
-    if (err) return res.status(500).json(err);
-    res.json(rows);
+  await Promise.all(promises);
+  res.json({ success: true, message: `Notification sent to ${subs.length} subscribers` });
+}));
+
+app.get("/notifications/subscriptions", adminAuth, asyncHandler(async (req, res) => {
+  const rows = await queryDb("SELECT * FROM push_subscriptions");
+  res.json(rows);
+}));
+
+// ── CENTRALIZED ERROR HANDLING MIDDLEWARE ──────────────────────────────
+app.use((err, req, res, next) => {
+  console.error("🔥 Global API Error Handler caught:", err.stack || err);
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || "Internal Server Error",
+    path: req.originalUrl
   });
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Urban Harvest Hub API listening on port ${PORT}`);
 });

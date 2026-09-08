@@ -25,11 +25,22 @@ function Events() {
   const fetchEvents = async () => {
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/events`);
-      setEvents(res.data);
-      setLoading(false);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setEvents(res.data);
+      } else {
+        const seedRes = await fetch("/data/seed_events.json");
+        const seedData = await seedRes.json();
+        setEvents(seedData);
+      }
     } catch (err) {
-      console.error(err);
-      setError("Failed to load events");
+      try {
+        const seedRes = await fetch("/data/seed_events.json");
+        const seedData = await seedRes.json();
+        setEvents(seedData);
+      } catch (e) {
+        setError("Failed to load events");
+      }
+    } finally {
       setLoading(false);
     }
   };

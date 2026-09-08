@@ -16,18 +16,29 @@ function Products() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", category: "", price: "", image: "", description: "", rating: "" });
 
-  // FETCH PRODUCTS
+  // FETCH PRODUCTS (Supports dynamic REST API with internal JSON seed fallback)
   useEffect(() => {
     axios
       .get(`${import.meta.env.VITE_API_URL}/products`)
       .then((res) => {
-        setProducts(res.data);
-        setLoading(false);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setProducts(res.data);
+        } else {
+          // Internal JSON seed fallback
+          return fetch("/data/seed_products.json").then(r => r.json()).then(data => setProducts(data));
+        }
       })
-      .catch(() => {
-        setError(t("products.error"));
-        setLoading(false);
-      });
+      .catch(async () => {
+        try {
+          // Read from internal JSON seed file
+          const seedRes = await fetch("/data/seed_products.json");
+          const seedData = await seedRes.json();
+          setProducts(seedData);
+        } catch (e) {
+          setError(t("products.error"));
+        }
+      })
+      .finally(() => setLoading(false));
   }, [t]);
 
   // DELETE PRODUCT

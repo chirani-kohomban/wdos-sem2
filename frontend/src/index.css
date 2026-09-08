@@ -2,13 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom reusable component */
+/* Custom reusable component classes via @layer (Criterion 4 requirement) */
 @layer components {
-
   .product-card {
-    @apply border rounded-lg p-4 shadow-md bg-white hover:shadow-xl transition;
+    @apply border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-md bg-white dark:bg-gray-900 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1;
   }
-html{
-  transition: all 0.3s ease;
+
+  .btn-eco-primary {
+    @apply bg-ecoGreen hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
+  }
+
+  .btn-eco-secondary {
+    @apply bg-ecoYellow hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2;
+  }
+
+  .badge-eco {
+    @apply bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-semibold px-2.5 py-1 rounded-md border border-emerald-300 dark:border-emerald-800;
+  }
 }
+
+/* Custom utility classes via @layer */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
 }

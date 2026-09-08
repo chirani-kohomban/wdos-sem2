@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-
-const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || "0386c9d722e0e47087b28fc08e2f89ab";
+const API_KEY = import.meta.env.VITE_OPEN_API_KEY || "0386c9d722e0e47087b28fc08e2f89ab";
 
 // Standard mock weather utility for Colombo, Kandy, Galle, Jaffna, etc.
 const getMockWeather = (query) => {

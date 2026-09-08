@@ -28,7 +28,7 @@ function EventDetail() {
   const fetchEventDetails = async () => {
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/events`);
-      const found = res.data.find((e) => e.id === Number(id));
+      const found = Array.isArray(res.data) ? res.data.find((e) => Number(e.id) === Number(id)) : null;
       if (found) {
         setEvent(found);
         const stored = localStorage.getItem(`event_reg_${id}`);
@@ -36,12 +36,29 @@ function EventDetail() {
           setIsRegistered(true);
         }
       } else {
-        setError("Event not found");
+        const seedRes = await fetch("/data/seed_events.json");
+        const seedData = await seedRes.json();
+        const seedFound = seedData.find((e) => Number(e.id) === Number(id));
+        if (seedFound) {
+          setEvent(seedFound);
+        } else {
+          setError("Event not found");
+        }
       }
-      setLoading(false);
     } catch (err) {
-      console.error(err);
-      setError("Failed to fetch event details");
+      try {
+        const seedRes = await fetch("/data/seed_events.json");
+        const seedData = await seedRes.json();
+        const seedFound = seedData.find((e) => Number(e.id) === Number(id));
+        if (seedFound) {
+          setEvent(seedFound);
+        } else {
+          setError("Failed to fetch event details");
+        }
+      } catch (e) {
+        setError("Failed to fetch event details");
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -214,7 +231,24 @@ function EventDetail() {
                       required
                       placeholder="Enter name (e.g. John Doe)..."
                       value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUserName(val);
+                        // Real-time validation: letters and spaces only
+                        const nameRegex = /^[A-Za-z\s]{3,100}$/;
+                        if (val && !nameRegex.test(val)) {
+                          setValidationErrors((prev) => ({ ...prev, userName: "Name must contain only letters and spaces (min 3 characters)" }));
+                        } else {
+                          setValidationErrors((prev) => { const e = { ...prev }; delete e.userName; return e; });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Block numbers and special characters from being typed
+                        const allowed = /^[A-Za-z\s]$/;
+                        if (!allowed.test(e.key) && !["Backspace","Delete","ArrowLeft","ArrowRight","Tab","Home","End"].includes(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
                       className={`w-full bg-white dark:bg-gray-850 border rounded-lg p-2.5 text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 ${
                         validationErrors.userName ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-700"
                       }`}

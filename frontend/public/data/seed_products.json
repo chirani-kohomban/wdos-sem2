@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "Organic Tomatoes",
+    "category": "Vegetables",
+    "price": 4.99,
+    "image": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80",
+    "description": "Freshly picked organic tomatoes from local urban farms. Rich in vitamins and natural antioxidants.",
+    "rating": 4.8
+  },
+  {
+    "id": 2,
+    "name": "Fresh Basil Bundle",
+    "category": "Herbs",
+    "price": 2.49,
+    "image": "https://images.unsplash.com/photo-1618164420084-29ec3ce4970f?auto=format&fit=crop&w=800&q=80",
+    "description": "Aromatic fresh basil perfect for homemade pesto, pasta sauces, and salads.",
+    "rating": 4.9
+  },
+  {
+    "id": 3,
+    "name": "Organic Lettuce",
+    "category": "Vegetables",
+    "price": 3.99,
+    "image": "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?auto=format&fit=crop&w=800&q=80",
+    "description": "Crisp and fresh organic romaine lettuce grown in hydro-gardens.",
+    "rating": 4.7
+  },
+  {
+    "id": 4,
+    "name": "Fresh Carrots",
+    "category": "Vegetables",
+    "price": 2.99,
+    "image": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=800&q=80",
+    "description": "Sweet and crunchy farm-fresh carrots packed with beta-carotene.",
+    "rating": 4.6
+  },
+  {
+    "id": 5,
+    "name": "Heirloom Peppers",
+    "category": "Vegetables",
+    "price": 5.99,
+    "image": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&w=800&q=80",
+    "description": "Colorful heirloom peppers with rich, complex sweet and spicy flavors.",
+    "rating": 4.8
+  },
+  {
+    "id": 6,
+    "name": "Organic Spinach",
+    "category": "Vegetables",
+    "price": 4.49,
+    "image": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=800&q=80",
+    "description": "Tender organic baby spinach leaves, iron-rich and versatile.",
+    "rating": 4.7
+  },
+  {
+    "id": 7,
+    "name": "Cherry Tomatoes",
+    "category": "Vegetables",
+    "price": 3.49,
+    "image": "https://images.unsplash.com/photo-1561136594-7f68413baa99?auto=format&fit=crop&w=800&q=80",
+    "description": "Bite-sized cherry tomatoes bursting with juicy sweetness.",
+    "rating": 4.9
+  },
+  {
+    "id": 8,
+    "name": "Fresh Mint",
+    "category": "Herbs",
+    "price": 1.99,
+    "image": "https://images.unsplash.com/photo-1628556270448-4d4e4148e1b1?auto=format&fit=crop&w=800&q=80",
+    "description": "Fragrant fresh mint leaves, ideal for teas, cooling drinks, and garnishes.",
+    "rating": 4.8
+  },
+  {
+    "id": 9,
+    "name": "Organic Parsley",
+    "category": "Herbs",
+    "price": 2.99,
+    "image": "https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=800&q=80",
+    "description": "Bright and fresh organic flat-leaf parsley, a vital kitchen staple.",
+    "rating": 4.6
+  },
+  {
+    "id": 10,
+    "name": "Sunflower Seeds",
+    "category": "Seeds",
+    "price": 6.99,
+    "image": "https://images.unsplash.com/photo-1597848212624-a19eb35e2651?auto=format&fit=crop&w=800&q=80",
+    "description": "Premium non-GMO sunflower seeds for balcony planting or healthy snacking.",
+    "rating": 4.5
+  }
+]

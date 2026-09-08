@@ -3,6 +3,7 @@ import axios from "axios";
 import { useTranslation } from "../i18n";
 import DashboardCard from "../components/DashboardCard";
 import PushSubscription from "./PushSubscription";
+import DBStatusWidget from "../components/DBStatusWidget";
 
 function Admin() {
   const { t } = useTranslation();
@@ -97,9 +98,24 @@ function Admin() {
     setPushResult("");
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/notifications/send`, pushForm);
-      setPushResult(res.data.message || "Push sent");
+      setPushResult(res.data.message || "Notification sent successfully!");
+
+      // Fire local notification popup on active screen for instant testing
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(pushForm.title || "Urban Harvest Hub 🌱", {
+          body: pushForm.body || "Push notification broadcast received!",
+          icon: "/pwa-192x192.png"
+        });
+      }
     } catch (err) {
-      setPushResult(err.response?.data?.error || "Failed to send push");
+      setPushResult(err.response?.data?.error || "Failed to send notification");
+      // Fallback local display trigger
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(pushForm.title || "Urban Harvest Hub 🌱", {
+          body: pushForm.body || "Notification broadcast!",
+          icon: "/pwa-192x192.png"
+        });
+      }
     }
   };
 
@@ -367,6 +383,9 @@ function Admin() {
             <DashboardCard title={t("admin.eventCount")} value={stats.events} icon="📅" colorClass="text-yellow-500" />
             <DashboardCard title={t("admin.requestCount")} value={stats.requests} icon="📨" colorClass="text-indigo-500" />
           </div>
+
+          {/* Real-Time Database Connection & Health Widget */}
+          <DBStatusWidget />
         </section>
       )}
 

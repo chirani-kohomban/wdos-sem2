@@ -28,7 +28,7 @@ function WorkshopDetail() {
   const fetchWorkshopDetails = async () => {
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/workshops`);
-      const found = res.data.find((w) => w.id === Number(id));
+      const found = Array.isArray(res.data) ? res.data.find((w) => Number(w.id) === Number(id)) : null;
       if (found) {
         setWorkshop(found);
         const stored = localStorage.getItem(`workshop_req_${id}`);
@@ -36,12 +36,29 @@ function WorkshopDetail() {
           setBookingStatus(stored);
         }
       } else {
-        setError("Workshop not found");
+        const seedRes = await fetch("/data/seed_workshops.json");
+        const seedData = await seedRes.json();
+        const seedFound = seedData.find((w) => Number(w.id) === Number(id));
+        if (seedFound) {
+          setWorkshop(seedFound);
+        } else {
+          setError("Workshop not found");
+        }
       }
-      setLoading(false);
     } catch (err) {
-      console.error(err);
-      setError("Failed to fetch workshop details");
+      try {
+        const seedRes = await fetch("/data/seed_workshops.json");
+        const seedData = await seedRes.json();
+        const seedFound = seedData.find((w) => Number(w.id) === Number(id));
+        if (seedFound) {
+          setWorkshop(seedFound);
+        } else {
+          setError("Failed to fetch workshop details");
+        }
+      } catch (e) {
+        setError("Failed to fetch workshop details");
+      }
+    } finally {
       setLoading(false);
     }
   };
