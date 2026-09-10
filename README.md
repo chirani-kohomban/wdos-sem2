@@ -9,9 +9,10 @@ Urban Harvest Hub is a full-stack Progressive Web Application (PWA) designed to 
 * **Cloud Database:** TiDB Cloud Serverless MySQL (SSL Protected, Port 4000)
 
 ## 📚 Evaluation & Defense Documentation
-* **Lecturer Defense Cheat Sheet:** [LECTURER_DEFENSE_CHEAT_SHEET.md](LECTURER_DEFENSE_CHEAT_SHEET.md)
-* **Manual Testing Matrix:** [MANUAL_TESTING_MATRIX.md](MANUAL_TESTING_MATRIX.md)
-* **Project Architecture Walkthrough:** [PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md](PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md)
+* **Project Presentation & Defense Guide:** [PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md](PROJECT_WALKTHROUGH_AND_DEFENSE_GUIDE.md)
+* **Simple Manual Testing Guide:** [MANUAL_TESTING_MATRIX.md](MANUAL_TESTING_MATRIX.md)
+* **Presentation Slides:** `Urban Harvest Hub.pptx`
+* **Final Written Report:** `final web dev report.pdf`
 
 ## Tech Stack
 
