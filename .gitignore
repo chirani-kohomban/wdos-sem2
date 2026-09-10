@@ -17,3 +17,4 @@ dev-dist/
 Thumbs.db
 *.log
 backend/*.sqlite
+~$*

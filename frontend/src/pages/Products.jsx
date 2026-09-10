@@ -15,6 +15,7 @@ function Products() {
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", category: "", price: "", image: "", description: "", rating: "" });
+  const [addErrors, setAddErrors] = useState({});
 
   // FETCH PRODUCTS (Supports dynamic REST API with internal JSON seed fallback)
   useEffect(() => {
@@ -56,16 +57,35 @@ function Products() {
     }
   };
 
-  // ADD PRODUCT
+  // ADD PRODUCT WITH VALIDATION
   const handleAddProduct = async (e) => {
     e.preventDefault();
+    setAddErrors({});
+
+    const errors = {};
+    if (!newProduct.name || newProduct.name.trim().length < 2) {
+      errors.name = "Product name must be at least 2 characters.";
+    }
+    if (!newProduct.category) {
+      errors.category = "Please select a category.";
+    }
+    if (!newProduct.price || isNaN(Number(newProduct.price)) || Number(newProduct.price) <= 0) {
+      errors.price = "Please enter a valid positive price.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setAddErrors(errors);
+      return;
+    }
+
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/products`, newProduct);
       setProducts([...products, res.data]);
       setNewProduct({ name: "", category: "", price: "", image: "", description: "", rating: "" });
       setShowAddForm(false);
+      alert("Product added successfully!");
     } catch (err) {
-      alert("Failed to add product");
+      alert("Failed to add product: " + (err.response?.data?.error || err.message));
     }
   };
 
@@ -111,42 +131,63 @@ function Products() {
       {showAddForm && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg mb-6 border dark:border-gray-700">
           <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-          <form onSubmit={handleAddProduct} className="grid md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Product Name"
-              required
-              value={newProduct.name}
-              onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-              className="bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
-            />
-            <select
-              required
-              value={newProduct.category}
-              onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
-              className="bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
-            >
-              <option value="">Select Category</option>
-              <option value="Vegetables">Vegetables</option>
-              <option value="Herbs">Herbs</option>
-              <option value="Seeds">Seeds</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Price"
-              step="0.01"
-              required
-              value={newProduct.price}
-              onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
-              className="bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
-            />
-            <input
-              type="text"
-              placeholder="Image URL"
-              value={newProduct.image}
-              onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
-              className="bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
-            />
+          <form onSubmit={handleAddProduct} noValidate className="grid md:grid-cols-2 gap-4">
+            <div>
+              <input
+                type="text"
+                placeholder="Product Name"
+                value={newProduct.name}
+                onChange={(e) => {
+                  setNewProduct({...newProduct, name: e.target.value});
+                  if (addErrors.name) setAddErrors({...addErrors, name: ""});
+                }}
+                className={`w-full bg-gray-50 dark:bg-gray-900 border rounded p-2 text-gray-800 dark:text-white ${addErrors.name ? 'border-red-500' : 'dark:border-gray-700'}`}
+              />
+              {addErrors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{addErrors.name}</p>}
+            </div>
+
+            <div>
+              <select
+                value={newProduct.category}
+                onChange={(e) => {
+                  setNewProduct({...newProduct, category: e.target.value});
+                  if (addErrors.category) setAddErrors({...addErrors, category: ""});
+                }}
+                className={`w-full bg-gray-50 dark:bg-gray-900 border rounded p-2 text-gray-800 dark:text-white ${addErrors.category ? 'border-red-500' : 'dark:border-gray-700'}`}
+              >
+                <option value="">Select Category</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Herbs">Herbs</option>
+                <option value="Seeds">Seeds</option>
+              </select>
+              {addErrors.category && <p className="text-red-500 text-xs mt-1 font-semibold">{addErrors.category}</p>}
+            </div>
+
+            <div>
+              <input
+                type="number"
+                placeholder="Price"
+                step="0.01"
+                value={newProduct.price}
+                onChange={(e) => {
+                  setNewProduct({...newProduct, price: e.target.value});
+                  if (addErrors.price) setAddErrors({...addErrors, price: ""});
+                }}
+                className={`w-full bg-gray-50 dark:bg-gray-900 border rounded p-2 text-gray-800 dark:text-white ${addErrors.price ? 'border-red-500' : 'dark:border-gray-700'}`}
+              />
+              {addErrors.price && <p className="text-red-500 text-xs mt-1 font-semibold">{addErrors.price}</p>}
+            </div>
+
+            <div>
+              <input
+                type="text"
+                placeholder="Image URL"
+                value={newProduct.image}
+                onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
+                className="w-full bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
+              />
+            </div>
+
             <textarea
               placeholder="Description"
               rows="2"
@@ -154,6 +195,7 @@ function Products() {
               onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
               className="md:col-span-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
             />
+
             <input
               type="number"
               placeholder="Rating (0-5)"
@@ -165,10 +207,10 @@ function Products() {
               className="bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded p-2 text-gray-800 dark:text-white"
             />
             <div className="md:col-span-2 flex gap-2">
-              <button type="submit" className="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">
+              <button type="submit" className="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">
                 Add Product
               </button>
-              <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-400 text-white py-2 rounded font-bold">
+              <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-2 rounded font-bold transition">
                 Cancel
               </button>
             </div>

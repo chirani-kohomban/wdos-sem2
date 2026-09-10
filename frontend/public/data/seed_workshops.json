@@ -6,7 +6,7 @@
     "date": "2026-07-15T10:00:00.000Z",
     "location": "Downtown Urban Farm Center",
     "slots": 15,
-    "image": "https://images.unsplash.com/photo-1416879598555-46747209e99a?auto=format&fit=crop&w=800&q=80"
+    "image": "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=800&q=80"
   },
   {
     "id": 2,
@@ -24,6 +24,6 @@
     "date": "2026-08-05T10:00:00.000Z",
     "location": "Environmental Learning Center",
     "slots": 25,
-    "image": "https://images.unsplash.com/photo-1542601906897-ecd3f7d0e2e3?auto=format&fit=crop&w=800&q=80"
+    "image": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80"
   }
 ]

@@ -71,18 +71,24 @@ function WorkshopDetail() {
     // Frontend validation
     const errors = {};
     const nameRegex = /^[A-Za-z\s]{3,100}$/;
-    if (!userName.trim() || !nameRegex.test(userName.trim())) {
-      errors.userName = "Name must contain only letters and spaces (min 3 characters)";
+    if (!userName.trim()) {
+      errors.userName = "Full name is required.";
+    } else if (!nameRegex.test(userName.trim())) {
+      errors.userName = "Name must contain only letters and spaces (min 3 characters).";
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim() || !emailRegex.test(email.trim())) {
-      errors.email = "Please enter a valid email address";
+    if (!email.trim()) {
+      errors.email = "Email address is required.";
+    } else if (!emailRegex.test(email.trim())) {
+      errors.email = "Please enter a valid email address (e.g. name@domain.com).";
     }
 
     const phoneRegex = /^[0-9+\-\s()]{8,20}$/;
-    if (!phone.trim() || !phoneRegex.test(phone.trim())) {
-      errors.phone = "Please enter a valid phone number (at least 8 digits)";
+    if (!phone.trim()) {
+      errors.phone = "Phone number is required.";
+    } else if (!phoneRegex.test(phone.trim())) {
+      errors.phone = "Please enter a valid phone number (at least 8 digits).";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -160,6 +166,10 @@ function WorkshopDetail() {
             <img
               src={workshop.image}
               alt={workshop.title}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=800&q=80";
+              }}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -223,15 +233,33 @@ function WorkshopDetail() {
               )}
 
               {bookingStatus ? (
-                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-4 rounded-xl text-center font-bold text-sm">
-                  ✓ Request Status: {bookingStatus}
+                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-5 rounded-xl text-center space-y-3 border border-green-300 dark:border-green-800">
+                  <div className="font-bold text-base">✓ Request Status: {bookingStatus}</div>
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    Your registration request has been submitted.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookingStatus("");
+                      localStorage.removeItem(`workshop_req_${id}`);
+                    }}
+                    className="mt-2 text-xs font-bold bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 border border-green-500 px-3 py-1.5 rounded-lg hover:bg-green-50 shadow-sm"
+                  >
+                    Reset & Test Form Again
+                  </button>
                 </div>
               ) : workshop.slots <= 0 ? (
-                <div className="bg-red-100 dark:bg-red-905/30 text-red-800 dark:text-red-300 p-4 rounded-xl text-center font-bold text-sm">
+                <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 p-4 rounded-xl text-center font-bold text-sm">
                   Fully Booked 😢
                 </div>
               ) : (
                 <form onSubmit={handleBooking} className="space-y-4" noValidate>
+                  {Object.keys(validationErrors).length > 0 && (
+                    <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold border border-red-300 dark:border-red-800">
+                      ⚠️ Please correct the errors in the form below.
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="user-name" className="block text-xs font-bold text-gray-550 dark:text-gray-400 mb-1 uppercase">
                       {t("workshops.userName")} *

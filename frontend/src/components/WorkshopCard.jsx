@@ -18,6 +18,10 @@ function WorkshopCard({ workshop, isRequested, onRequest, onDelete }) {
           <img
             src={workshop.image}
             alt={workshop.title}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=800&q=80";
+            }}
             className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
           />
         ) : (

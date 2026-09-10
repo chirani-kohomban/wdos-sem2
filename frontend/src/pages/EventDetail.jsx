@@ -71,18 +71,22 @@ function EventDetail() {
     // Validation
     const errors = {};
     const nameRegex = /^[A-Za-z\s]{3,100}$/;
-    if (!userName.trim() || !nameRegex.test(userName.trim())) {
-      errors.userName = "Name must contain only letters and spaces (min 3 characters)";
+    if (!userName.trim()) {
+      errors.userName = "Full name is required.";
+    } else if (!nameRegex.test(userName.trim())) {
+      errors.userName = "Name must contain only letters and spaces (min 3 characters).";
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim() || !emailRegex.test(email.trim())) {
-      errors.email = "Please enter a valid email address";
+    if (!email.trim()) {
+      errors.email = "Email address is required.";
+    } else if (!emailRegex.test(email.trim())) {
+      errors.email = "Please enter a valid email address (e.g. name@domain.com).";
     }
 
     const count = Number(attendees);
-    if (isNaN(count) || count < 1 || count > 10) {
-      errors.attendees = "Attendees must be a number between 1 and 10";
+    if (!attendees || isNaN(count) || count < 1 || count > 10) {
+      errors.attendees = "Attendees must be a valid number between 1 and 10.";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -216,11 +220,29 @@ function EventDetail() {
               )}
 
               {isRegistered ? (
-                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-4 rounded-xl text-center font-bold text-sm">
-                  ✓ {t("events.registered")}
+                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-5 rounded-xl text-center space-y-3 border border-green-300 dark:border-green-800">
+                  <div className="font-bold text-base">✓ {t("events.registered")}</div>
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    Your attendance has been registered successfully.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRegistered(false);
+                      localStorage.removeItem(`event_reg_${id}`);
+                    }}
+                    className="mt-2 text-xs font-bold bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 border border-green-500 px-3 py-1.5 rounded-lg hover:bg-green-50 shadow-sm"
+                  >
+                    Register Another Guest / Test Form Again
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={handleRegister} className="space-y-4" noValidate>
+                  {Object.keys(validationErrors).length > 0 && (
+                    <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold border border-red-300 dark:border-red-800">
+                      ⚠️ Please correct the errors in the form below.
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="event-user-name" className="block text-xs font-bold text-gray-550 dark:text-gray-400 mb-1 uppercase">
                       {t("events.userName")} *
@@ -231,24 +253,7 @@ function EventDetail() {
                       required
                       placeholder="Enter name (e.g. John Doe)..."
                       value={userName}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setUserName(val);
-                        // Real-time validation: letters and spaces only
-                        const nameRegex = /^[A-Za-z\s]{3,100}$/;
-                        if (val && !nameRegex.test(val)) {
-                          setValidationErrors((prev) => ({ ...prev, userName: "Name must contain only letters and spaces (min 3 characters)" }));
-                        } else {
-                          setValidationErrors((prev) => { const e = { ...prev }; delete e.userName; return e; });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        // Block numbers and special characters from being typed
-                        const allowed = /^[A-Za-z\s]$/;
-                        if (!allowed.test(e.key) && !["Backspace","Delete","ArrowLeft","ArrowRight","Tab","Home","End"].includes(e.key)) {
-                          e.preventDefault();
-                        }
-                      }}
+                      onChange={(e) => setUserName(e.target.value)}
                       className={`w-full bg-white dark:bg-gray-850 border rounded-lg p-2.5 text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 ${
                         validationErrors.userName ? "border-red-500 focus:ring-red-500" : "border-gray-300 dark:border-gray-700"
                       }`}
