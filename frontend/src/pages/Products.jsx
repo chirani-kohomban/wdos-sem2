@@ -69,13 +69,21 @@ function Products() {
     }
   };
 
+  // DYNAMIC CATEGORIES EXTRACTION
+  const availableCategories = Array.from(
+    new Set(products.map((item) => item.category).filter(Boolean))
+  );
+
   // FILTERING
   const filteredProducts = products.filter((item) => {
     const matchesSearch =
-      item.name.toLowerCase().includes(search.toLowerCase());
+      !search ||
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(search.toLowerCase()));
 
     const matchesCategory =
-      selected === "all" || item.category === selected;
+      selected === "all" ||
+      (item.category && item.category.trim().toLowerCase() === selected.trim().toLowerCase());
 
     return matchesSearch && matchesCategory;
   });
@@ -90,7 +98,7 @@ function Products() {
 
       {/* SEARCH + FILTER */}
       <SearchBar search={search} setSearch={setSearch} />
-      <CategoryFilter selected={selected} setSelected={setSelected} />
+      <CategoryFilter selected={selected} setSelected={setSelected} categories={availableCategories} />
 
       {/* ADD NEW PRODUCT FORM */}
       <button
